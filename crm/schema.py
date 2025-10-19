@@ -59,7 +59,8 @@ class CreateCustomer(graphene.Mutation):
                     customer=None
                 )
         
-        customer = Customer.objects.create(name=name, email=email, phone=phone)
+        customer = Customer(name=name, email=email, phone=phone)
+        customer.save()
         
         return cls(
             success=True,
