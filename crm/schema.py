@@ -5,17 +5,50 @@ from django.db import transaction, IntegrityError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
 from .models import Customer, Product, Order
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        fields = ("id", "name", "email", "phone")
+        fields = "__all__"
+        interfaces = (graphene.relay.Node,)
+        filterset_class = CustomerFilter
+
+class ProductType(DjangoObjectType):
+    class Meta:
+        model = Product
+        fields = "__all__"
+        interfaces = (graphene.relay.Node,)
+        filterset_class = ProductFilter
+
+class OrderType(DjangoObjectType):
+    total_amount = graphene.Decimal()
+    
+    class Meta:
+        model = Order
+        fields = "__all__"
+        interfaces = (graphene.relay.Node,)
+        filterset_class = OrderFilter
+    
+    def resolve_total_amount(self, info):
+        return self.total_amount
 
 class CustomerInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     email = graphene.String(required=True)
     phone = graphene.String()
+
+class CreateProductInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+    price = graphene.Float(required=True)
+    stock = graphene.Int()
+
+class CreateOrderInput(graphene.InputObjectType):
+    customer_id = graphene.UUID(required=True)
+    product_ids = graphene.List(graphene.UUID, required=True)
+    order_date = graphene.DateTime()
 
 class CreateCustomer(graphene.Mutation):
     class Arguments:
@@ -101,16 +134,6 @@ class BulkCreateCustomers(graphene.Mutation):
         return cls(customers=created,
                    errors=errors)
 
-class ProductType(DjangoObjectType):
-    class Meta:
-        model = Product
-        fields = ("id", "name", "price", "stock")
-
-class CreateProductInput(graphene.InputObjectType):
-    name = graphene.String(required=True)
-    price = graphene.Float(required=True)
-    stock = graphene.Int()
-
 class CreateProduct(graphene.Mutation):
     class Arguments:
         input = CreateProductInput(required=True)
@@ -148,21 +171,6 @@ class CreateProduct(graphene.Mutation):
             message="Product created successfully.",
             product=product
         )
-
-class OrderType(DjangoObjectType):
-    total_amount = graphene.Decimal()
-    
-    class Meta:
-        model = Order
-        fields = ("id","customer", "products", "order_date")
-    
-    def resolve_total_amount(self, info):
-        return self.total_amount
-
-class CreateOrderInput(graphene.InputObjectType):
-    customer_id = graphene.UUID(required=True)
-    product_ids = graphene.List(graphene.UUID, required=True)
-    order_date = graphene.DateTime()
 
 class CreateOrder(graphene.Mutation):
     class Arguments:
@@ -214,18 +222,36 @@ class CreateOrder(graphene.Mutation):
             return cls(errors=errors)
 
 class Query(graphene.ObjectType):
-    customers = graphene.List(CustomerType)
-    products = graphene.List(ProductType)
-    orders = graphene.List(OrderType)
+    all_customers = DjangoFilterConnectionField(
+        CustomerType,
+        order_by=graphene.List(of_type=graphene.String)
+    )
+    all_products = DjangoFilterConnectionField(
+        ProductType,
+        order_by=graphene.List(of_type=graphene.String)
+    )
+    all_orders = DjangoFilterConnectionField(
+        OrderType,
+        order_by=graphene.List(of_type=graphene.String)
+    )
 
-    def resolve_customers(root, info):
-        return Customer.objects.all()
+    def resolve_all_customers(root, info, order_by=None, **kwargs):
+        queryset = Customer.objects.all()
+        if order_by:
+            queryset = queryset.order_by(*order_by)
+        return queryset
 
-    def resolve_products(root, info):
-        return Product.objects.all()
+    def resolve_all_products(root, info, order_by=None, **kwargs):
+        queryset = Product.objects.all()
+        if order_by:
+            queryset = queryset.order_by(*order_by)
+        return queryset
 
-    def resolve_orders(root, info):
-        return Order.objects.all()
+    def resolve_all_orders(root, info, order_by=None, **kwargs):
+        queryset = Order.objects.all()
+        if order_by:
+            queryset = queryset.order_by(*order_by)
+        return queryset
 
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
