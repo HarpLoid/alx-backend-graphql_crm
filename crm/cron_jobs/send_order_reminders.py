@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import requests
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
 from datetime import datetime, timedelta
 
 # GraphQL endpoint
@@ -8,12 +9,20 @@ GRAPHQL_URL = "http://localhost:8000/graphql"
 # Log file
 LOG_FILE = "/tmp/order_reminders_log.txt"
 
+# Configure the transport and client
+transport = RequestsHTTPTransport(
+    url=GRAPHQL_URL,
+    verify=True,
+    retries=3,
+)
+client = Client(transport=transport, fetch_schema_from_transport=False)
+
 # Calculate the date range (last 7 days)
 today = datetime.now()
 seven_days_ago = today - timedelta(days=7)
 
-# GraphQL query
-query = """
+# Define GraphQL query
+query = gql("""
 query RecentOrders($fromDate: DateTime!) {
   allOrders(filter: { orderDate_Gte: $fromDate }) {
     id
@@ -22,29 +31,18 @@ query RecentOrders($fromDate: DateTime!) {
     }
   }
 }
-"""
+""")
 
-# Send the request
-response = requests.post(
-    GRAPHQL_URL,
-    json={
-        "query": query,
-        "variables": {"fromDate": seven_days_ago.isoformat()}
-    },
-)
+# Execute the query
+result = client.execute(query, variable_values={"fromDate": seven_days_ago.isoformat()})
 
-# Check response
-if response.status_code == 200:
-    data = response.json()
-    orders = data.get("data", {}).get("allOrders", [])
-    
-    # Log each order
-    with open(LOG_FILE, "a") as log:
-        for order in orders:
-            order_id = order.get("id")
-            email = order.get("customer", {}).get("email")
-            log.write(f"[{today.strftime('%Y-%m-%d %H:%M:%S')}] Order ID: {order_id}, Email: {email}\n")
+# Extract and log the results
+orders = result.get("allOrders", [])
 
-    print("Order reminders processed!")
-else:
-    print(f"Failed to fetch orders. Status code: {response.status_code}")
+with open(LOG_FILE, "a") as log:
+    for order in orders:
+        order_id = order.get("id")
+        email = order.get("customer", {}).get("email")
+        log.write(f"[{today.strftime('%Y-%m-%d %H:%M:%S')}] Order ID: {order_id}, Email: {email}\n")
+
+print("Order reminders processed!")
