@@ -6,7 +6,8 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
-from crm.models import Customer, Product, Order
+from .models import Customer, Order
+from crm.models import Product
 from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 class CustomerType(DjangoObjectType):
