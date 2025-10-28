@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django_filters',
     'graphene_django',
     'crm',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -101,6 +102,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+CRONJOBS = [
+    ('*/5 * * * *', 'crm.cron.log_crm_heartbeat'),
+]
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
