@@ -1,8 +1,10 @@
-import datetime
 import logging
+import requests
+from datetime import datetime
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 from celery import shared_task
+
 
 @shared_task
 def generate_crm_report():
@@ -35,7 +37,7 @@ def generate_crm_report():
         total_revenue = response.get("totalRevenue", 0.0)
 
         # Log the report
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_line = (
             f"{timestamp} - Report: "
             f"{total_customers} customers, "
@@ -47,5 +49,6 @@ def generate_crm_report():
             log_file.write(log_line)
 
         logging.info("CRM weekly report generated successfully.")
+
     except Exception as e:
         logging.error(f"Error generating CRM report: {e}")
